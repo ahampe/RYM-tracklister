@@ -1,1 +1,3 @@
 # RYM-tracklister
+
+This is a script written in Python 2.7 designed to generate tracklistings for submission to the RateYourMusic database. It currently takes raw copied/pasted input as txt and creates a formatted tracklist conforming to RYM standards. It properly formats titles (including Unicode) and allows for quick linking of classical works. This will soon be revised and implemented as a web app for easier contributor accessibility.
