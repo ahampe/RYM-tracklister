@@ -6,5 +6,7 @@ This is a script written in Python 2.7 designed to generate tracklistings for su
 Python version: 2.7
 Note: virtualenv is recommended
 
+0. `virtualenv venv && source venv/bin/activate` (optional)
 1. `pip install -r requirements.txt`
-2. `python server.py`
+2. `cd static && npm install && cd ..`
+3. `python server.py`
