@@ -5,16 +5,27 @@ TracklistFilename = "tracklist-in.txt"
 SettingsFilename = "settings.txt"
 OutFilename = "tracklist-out.txt"
 
-def TrackListWrite(tracklist, setting, output):
-    #Take in tracklist and settings files and separate lines:
-    tListFile = codecs.open(tracklist, encoding='utf-8-sig')
-    allLines = [ line.rstrip() for line in tListFile.readlines() ]
+def parse_tracklist_file(tracklist_path):
+    tListFile = codecs.open(tracklist_path, encoding='utf-8-sig')
+    allLines = [ line for line in tListFile.readlines() ]
+    return parse_tracklist_list(allLines)
+
+def parse_tracklist_str(tracklist_str):
+    allLines = [ line for line in tracklist_str.split("\n") ]
+    return parse_tracklist_list(allLines)
+
+def parse_tracklist_list(tracklist_list):
+    allLines = [ line.rstrip() for line in tracklist_list ]
     tlines = []
     for line in allLines:
         if len(line) == 0:
             continue
         tlines.append(line)
-    settingsFile = codecs.open(setting, encoding='utf-8')
+
+    return tlines
+
+def parse_settings_file(settings_path):
+    settingsFile = codecs.open(settings_path, encoding='utf-8')
     allLines = [ line.rstrip("\r\n") for line in settingsFile.readlines() ]
     slines = []
     wlines = []
@@ -35,8 +46,7 @@ def TrackListWrite(tracklist, setting, output):
                 wlines.append(wline)
             else:
                 slines.append(allLines[n])
-                
-    global settings #Must be global for caps formatting in regex captures (RYM sources)
+
     settings = {}
     sourceFind = re.search(u'^Source:(\s*)(.*)$', slines[0], re.U|re.I)
     if sourceFind:
@@ -57,10 +67,10 @@ def TrackListWrite(tracklist, setting, output):
                 settings["toClear"].append((slines[1], "exact"))
             del slines[1]
 
-    
+
     vaFind = re.search(u'^Is_VA:(\s*)(.*)$', slines[1], re.U|re.I)
     if vaFind: settings["va"] = vaFind.group(2).lower()
-    
+
     langFind = re.search(u'^Language:(\s*)(.*)$', slines[2], re.U|re.I)
     if langFind:
         splitLangs = langFind.group(2).split()
@@ -71,36 +81,45 @@ def TrackListWrite(tracklist, setting, output):
 
     mergeFind = re.search(u'^Merge:(\s*)(.*)$', slines[3], re.U|re.I)
     if mergeFind: settings["merge"] = mergeFind.group(2)[0].lower()
-    
+
     settings["isClass"] = False
     if len(wlines) > 0:
         settings["isClass"] = True
         settings["wlines"] = wlines #The lines are unchanged until WriteClassical
-            
+
+    return settings
+
+def TrackListWrite(tracklist, settings):
+    #Take in tracklist and settings files and separate lines:
+    tlines = tracklist
+
+    global global_settings
+    global_settings = settings
+
     #Check source and run corresponding function:
     if settings["source"] == 'd':
-        DiscogsWrite(tlines, output)
+        return DiscogsWrite(tlines)
     elif settings["source"] == 'i':
-        iTunesWrite(tlines, output)
+        return iTunesWrite(tlines)
     elif settings["source"] == 'z':
-        AmazonWrite(tlines, output)
+        return AmazonWrite(tlines)
     elif settings["source"] == 'a':
-        AllMusicWrite(tlines, output)
+        return AllMusicWrite(tlines)
     elif settings["source"] == 'o':
-        OtherWrite(tlines, output)
+        return OtherWrite(tlines)
     elif settings["source"] == 'r':
-        RYMWrite(tlines, output)
+        return RYMWrite(tlines)
     else:
         raise ValueError("This source isn't supported yet!")
-    
-    
-def DiscogsWrite(tlines, output):
-    out = open(output, 'w')
+
+
+def DiscogsWrite(tlines):
+    # out = open(output, 'w')
     if ("Tracklist" in tlines[0]) or (" Credits" in tlines[0]):
         del tlines[0] #Just in case you paste it in (script might think it's a disc title or something)
-    
+
     toWrite = []
-    
+
     #-------Main loop: begins with the last line and counts down (for a few reasons)--------
     for i in range(len(tlines)-1,-1,-1):
         string.replace(tlines[i], '|', '/') #Since | characters are meta-chars in RYM tracklist
@@ -108,12 +127,12 @@ def DiscogsWrite(tlines, output):
         mainAppend = None #^^^
         dontWrite = False
 
-        #In rare cases, a CD track may be entered in the form 0:00:00, when it should be 00:00   
+        #In rare cases, a CD track may be entered in the form 0:00:00, when it should be 00:00
         longTrack = re.search(r'(\d+):(\d+):(\d+)$', tlines[i], re.M|re.U)
         if longTrack:
             newDur = FixLongTrack(longTrack.group(1), longTrack.group(2), longTrack.group(3))
             tlines[i] = string.replace(tlines[i], str(longTrack.group()), newDur)
-        
+
         #Search for track info:
         trackInfo = re.search(r'^(\d+[\.]?[\d\w]*)-?(\d*\.?[\d\w]*)\s*\t+(.+)\s*\t+(\d+:\d+)$', tlines[i], re.M|re.U)
         if not trackInfo: trackInfo = re.search(r'^([A-Z])-?(\d*\.?[\d\w]*)\s*\t+(.+)\s*\t+(\d+:\d+)$', tlines[i], re.M|re.U)
@@ -121,7 +140,7 @@ def DiscogsWrite(tlines, output):
         if not trackInfo: trackInfo = re.search(r'^(\d+\.?[\d\w]*)-?(\d*\.?[\d\w]*)\s?\t+(.+)\s*$', tlines[i], re.M|re.U)
         if not trackInfo: trackInfo = re.search(r'^([A-Z])-?(\d*\.?[\d\w]*(?:ix|iv|v?i{0,3}|IX|IV|V?I{0,3}))\s?\t+(.+)\s*$', tlines[i], re.M|re.U)
 
-        #^ More strict subtrack finding here to prevent errors 
+        #^ More strict subtrack finding here to prevent errors
 
         if trackInfo:
             #Preparing data to write to track (might be modified later in script):
@@ -130,7 +149,7 @@ def DiscogsWrite(tlines, output):
             titleInfo = re.search(ur'\u2013(.+)\t(.+)$', trTitle, re.M|re.U) #For VA releases
             #Need to split tabbed entries if they exist:
             if titleInfo:
-                if settings["va"] == 'y':
+                if global_settings["va"] == 'y':
                     trArtist = StripSpaces(titleInfo.group(1)) #Will only use if it's a V/A release
                     if trArtist[-1] == '*': trArtist = trArtist[:-1] #Get rid of asterisk at end of artist name
                     isDisambig = re.search(ur'(.+) \(\d+\)$', trArtist, re.M|re.U) #Disamiguated artist names are appended with (#)
@@ -139,10 +158,10 @@ def DiscogsWrite(tlines, output):
                     else:
                         trArtist = trArtist+ u' - '
                 trTitle = StripSpaces(titleInfo.group(2))
-                
+
             #Now Format the title:
             trTitle = CapsFormat(StripSpaces(trTitle))
-            
+
             try: #Duration not always listed, esp. for vinyl and tape
                 trHead = trackInfo.group(4)[:-3] #Hrs and mins
                 trTail = trackInfo.group(4)[-3:] #Seconds
@@ -157,7 +176,7 @@ def DiscogsWrite(tlines, output):
                 trNum = StripLead0(trackInfo.group(2))
             else:
                 num = StripLead0(trackInfo.group(1))
-            
+
             #Determine if track is a sub-track (in discogs, they're denoted by periods: 2-01.1, 1.a, etc)
             #... if found, delete tracknum field, and put alphanumeric in tracktitle field:
             for g in [1, 2]: #Only look at track and disc field from trackInfo:
@@ -172,13 +191,13 @@ def DiscogsWrite(tlines, output):
                     tempTr = subTrack.group(1) #For later, if / when main track is found
                     subNum = subTrack.group(2) #subNum must be alphanumeric to work
                     try:
-                        if settings["isClass"]:
+                        if global_settings["isClass"]:
                             subNum = ToRoman(int(subNum))
                         else:
                             subNum = ToAlpha(int(subNum)-1)
                     except:
                         subNum = subNum.lower()
-                    
+
                     #Make sure main track is present and listed above sub-tracks. If not, make a placeholder.
                     #Credits have been cleared, so they shouldn't be a problem
                     if subNum == 'a' or subNum == 'i' and toWrite[-1][1:3] == 'ii': #Assumes first sub-track is part a, or maybe roman numerals
@@ -192,7 +211,7 @@ def DiscogsWrite(tlines, output):
                                 mainTrack = u'' + string.replace(tlines[i-1], ur'\t', u'')
                             else:
                                 mainTrack = u''
-                                        
+
                     #Now we must prepare a main track if it's been found (it's set to None each iteration):
                     if mainTrack != None:
                         #Format main track title
@@ -214,7 +233,7 @@ def DiscogsWrite(tlines, output):
                                         erasingLengths = False #Erase only up until last subtrack
                                 erasingLengths = False
                         #Check if merging subtracks is on:
-                        if settings["merge"] == 'y':
+                        if global_settings["merge"] == 'y':
                             dontWrite = True #Don't write the current subtrack
                             marked = []
                             if len(mainTrack) > 1:
@@ -249,8 +268,8 @@ def DiscogsWrite(tlines, output):
                                     mainAppend = num + tempTr + '|' + mainTrack + '|' + mainLen
                                 except:
                                     mainAppend = num + tempTr + '|' + mainTrack + '|' + trLen
-                                    
-            
+
+
                     #Now remove track number, and insert subNum into track title if subtrack:
                     if trackInfo.group(2):
                         discNum = ""
@@ -258,9 +277,9 @@ def DiscogsWrite(tlines, output):
                     else:
                         num = ""
                     trTitle = subNum + ". " + trTitle
-                    
+
             #May want to lookup artist shortcut in the future for VA, although this could lead to problems...
-            
+
             #Write actual lines after all modifications:
             if not dontWrite:
                 if trackInfo.group(2):
@@ -271,7 +290,7 @@ def DiscogsWrite(tlines, output):
                 toWrite.append(mainAppend)
 
         #If trackInfo was not found:
-        else: 
+        else:
             #Perhaps it is the title of a disc, a classical main_work, or some other title, but not a suite (Those have been moved to tracks):
             nonTrack = re.sub(ur"^\t", u"", tlines[i], 0, re.M|re.U)
             nonTrack = re.sub(ur"\t.*", u"", nonTrack, 0, re.M|re.U)
@@ -298,28 +317,30 @@ def DiscogsWrite(tlines, output):
                 pass
 
     #------------End of main loop-------------
-    
+
     toWrite.reverse()
-    
+
     #Finally, insert links to classical works where applicable:
-    if settings["isClass"]:
+    if global_settings["isClass"]:
         toWrite = WriteClassical(toWrite)
-    
-    print "------------------------"
-    print "Results written to txt:"
-    print "------------------------"
-    print ""
-    for line in toWrite:
-        print line
 
-    #Actual text writing:
-    for line in toWrite:
-        out.write(line.encode('utf-8') + "\n")
-    out.close()
+    # print "------------------------"
+    # print "Results written to txt:"
+    # print "------------------------"
+    # print ""
+    # for line in toWrite:
+    #     print line
+    #
+    # #Actual text writing:
+    # for line in toWrite:
+    #     out.write(line.encode('utf-8') + "\n")
+    # out.close()
+
+    return toWrite
 
 
-def iTunesWrite(tlines, output):
-    out = open(output, 'w')
+def iTunesWrite(tlines):
+    # out = open(output, 'w')
     #If heading line "Name, Artist, Price [etc]" was copied, throw it out:
     tabFirstLine = re.search(ur"\t", tlines[0], re.M|re.U)
     if tabFirstLine: del tlines[0]
@@ -351,7 +372,7 @@ def iTunesWrite(tlines, output):
             #Next line is track title:
             trTitle = CapsFormat(tlines[i+1])
             trTitleL[-1] = trTitle
-            if settings["va"] == 'y': #Only save track artist if VA release
+            if global_settings["va"] == 'y': #Only save track artist if VA release
                 trArtist = tlines[i+2] + u" - "
                 trArtistL[-1] = trArtist
             #Next line is duration:
@@ -381,7 +402,7 @@ def iTunesWrite(tlines, output):
             try:
                 i += 6
             except:
-                break 
+                break
     #End of main loop.
     if not IsMultiDisc: #Erase discnum info
         for e in range(len(trDiscL)): trDiscL[e] = u""
@@ -390,23 +411,25 @@ def iTunesWrite(tlines, output):
         toWrite.append(trDiscL[x] + str(trNumL[x]) + u'|' + trArtistL[x] + trTitleL[x] + '|' + trDurL[x])
 
     #Finally, insert links to classical works where applicable:
-    if settings["isClass"]:
+    if global_settings["isClass"]:
         toWrite = WriteClassical(toWrite)
-    
-    print "------------------------"
-    print "Results written to txt:"
-    print "------------------------"
-    print ""
-    for line in toWrite:
-        print line
-    
-    #Actual text writing:
-    for line in toWrite:
-        out.write(line.encode('utf-8') + "\n")
-    out.close()
 
-def AmazonWrite(tlines, output):
-    out = open(output, 'w')
+    # print "------------------------"
+    # print "Results written to txt:"
+    # print "------------------------"
+    # print ""
+    # for line in toWrite:
+    #     print line
+    #
+    # #Actual text writing:
+    # for line in toWrite:
+    #     out.write(line.encode('utf-8') + "\n")
+    # out.close()
+
+    return toWrite
+
+def AmazonWrite(tlines):
+    # out = open(output, 'w')
     if "Sample this album" in tlines[0]: del tlines[0]
     toWrite = []
     #Set up lists to store track info:
@@ -439,7 +462,7 @@ def AmazonWrite(tlines, output):
             trDiscL.append(str(OnDisc) + u".")
             #Next line is track title:
             #Separate out classical work if possible:
-            if settings["isClass"]:
+            if global_settings["isClass"]:
                 #Format is rather strict, but is often used on Amazon
                 classFind = re.search(ur"(?:\: )(.+?)(?:\: )(\d+|((xc|x?l|l?x{1,3})(ix|iv|v?i{0,3})|(xc|xl|l?x{0,3})(ix|i?v|v?i{1,3})))(\. .+)$", tlines[i+1], re.M|re.U|re.I)
                 if not classFind: classFind = re.search(ur"^(.+?)(?:\: )(\d+|((xc|x?l|l?x{1,3})(ix|iv|v?i{0,3})|(xc|xl|l?x{0,3})(ix|i?v|v?i{1,3})))(\. .+)$",  tlines[i+1], re.M|re.U|re.I)
@@ -463,7 +486,7 @@ def AmazonWrite(tlines, output):
                 trTitleL[-1] = trTitle
             #Now determine whether track artist is present:
             if tlines[i+2][:3] == u"by ":
-                if settings["va"] == 'y': #Only save track artist if VA release
+                if global_settings["va"] == 'y': #Only save track artist if VA release
                     trArtist = tlines[i+2][3:] + u" - "
                     trArtistL[-1] = trArtist
                 i += 1 #go forward a line, since this line is optional
@@ -480,7 +503,7 @@ def AmazonWrite(tlines, output):
                 trDurL[-1] = tlines[i+2]
                 try: i += 4 #Price line
                 except: break
-            
+
     #End of main loop.
     if not IsMultiDisc: #Erase discnum info
         for e in range(len(trDiscL)): trDiscL[e] = u""
@@ -490,30 +513,32 @@ def AmazonWrite(tlines, output):
     #Insert any classical main works:
     for y in range(len(worksToWrite)-1,-1,-1):
         toWrite.insert(worksToWrite[y][0], worksToWrite[y][1])
-        
-    #Finally, insert links to classical works where applicable:
-    if settings["isClass"]:
-        toWrite = WriteClassical(toWrite)
-    
-    print "------------------------"
-    print "Results written to txt:"
-    print "------------------------"
-    print ""
-    for line in toWrite:
-        print line
-        
-    #Actual text writing:
-    for line in toWrite:
-        out.write(line.encode('utf-8') + "\n")
-    out.close()
 
-def AllMusicWrite(tlines, output):
-    out = open(output, 'w')
+    #Finally, insert links to classical works where applicable:
+    if global_settings["isClass"]:
+        toWrite = WriteClassical(toWrite)
+
+    # print "------------------------"
+    # print "Results written to txt:"
+    # print "------------------------"
+    # print ""
+    # for line in toWrite:
+    #     print line
+    #
+    # #Actual text writing:
+    # for line in toWrite:
+    #     out.write(line.encode('utf-8') + "\n")
+    # out.close()
+
+    return toWrite
+
+def AllMusicWrite(tlines):
+    # out = open(output, 'w')
     #I hate AllMusic, but extracting info from it is simple enough. Similar to Amazon and iTunes
     if " Listing" in tlines[0]: del tlines[0]
     if "\tTime" in tlines[0]: del tlines[0]
     if "blue highl" in tlines[-1]: del tlines[-1]
-    
+
     toWrite = []
     #Set up lists to store track info:
     trNumL = [] #List of ints
@@ -560,7 +585,7 @@ def AllMusicWrite(tlines, output):
                 if i+j == len(tlines):
                     break
             #Now find track artist if applicable:
-            if settings["va"] == 'y': #Only save track artist if VA release
+            if global_settings["va"] == 'y': #Only save track artist if VA release
                 #"feat:" lines should be ignored (put in credits section?)
                 featSearch = re.search(ur"^feat\:\s+.+", tlines[i+j-1], re.M|re.U)
                 if featSearch: trArtistL[-1] = tlines[i+j-2] + u" - "
@@ -582,26 +607,28 @@ def AllMusicWrite(tlines, output):
     #Make each line in RYM format:
     for x in range(len(trNumL)):
         toWrite.append(trDiscL[x] + trNumL[x] + u'|' + trArtistL[x] + trTitleL[x] + '|' + trDurL[x])
-    
-    
+
+
     #Write classical:
-    if settings["isClass"]:
+    if global_settings["isClass"]:
         toWrite = WriteClassical(toWrite)
 
-    print "------------------------"
-    print "Results written to txt:"
-    print "------------------------"
-    print ""
-    for line in toWrite:
-        print line
-        
-    #Actual text writing:
-    for line in toWrite:
-        out.write(line.encode('utf-8') + "\n")
-    out.close()
+    # print "------------------------"
+    # print "Results written to txt:"
+    # print "------------------------"
+    # print ""
+    # for line in toWrite:
+    #     print line
+    #
+    # #Actual text writing:
+    # for line in toWrite:
+    #     out.write(line.encode('utf-8') + "\n")
+    # out.close()
 
-def RYMWrite(tlines, output):
-    out = open(output, 'w')
+    return toWrite
+
+def RYMWrite(tlines):
+    # out = open(output, 'w')
     #This one is easy: just format title if needed, and insert classical works.
     toWrite = []
     for t in range(len(tlines)):
@@ -621,20 +648,22 @@ def RYMWrite(tlines, output):
 
 
     #Write classical:
-    if settings["isClass"]:
+    if global_settings["isClass"]:
         toWrite = WriteClassical(toWrite)
 
-    print "------------------------"
-    print "Results written to txt:"
-    print "------------------------"
-    print ""
-    for line in toWrite:
-        print line
-        
-    #Actual text writing:
-    for line in toWrite:
-        out.write(line.encode('utf-8') + "\n")
-    out.close()
+    # print "------------------------"
+    # print "Results written to txt:"
+    # print "------------------------"
+    # print ""
+    # for line in toWrite:
+    #     print line
+    #
+    # #Actual text writing:
+    # for line in toWrite:
+    #     out.write(line.encode('utf-8') + "\n")
+    # out.close()
+
+    return toWrite
 
 def WorkSub(match):
     return match.group(1) + CapsFormat(match.group(2)) + match.group(3) + CapsFormat(match.group(4)) + match.group(5) + CapsFormat(match.group(6)) + match.group(7)
@@ -648,13 +677,13 @@ def BracketSub(match):
 def NormalSub(match):
     return match.group(1) + CapsFormat(match.group(2)) + match.group(3)
 
-def OtherWrite(tlines, output):
-    out = open(output, 'w')
+def OtherWrite(tlines):
+    # out = open(output, 'w')
     #First find extra info in tlines and clear it:
-    if len(settings["toClear"]) > 0:
+    if len(global_settings["toClear"]) > 0:
         markForDel = []
         for t in range(len(tlines)):
-            for dline in settings["toClear"]:
+            for dline in global_settings["toClear"]:
                 if dline[0] in tlines[t]:
                     if dline[1] == "line":
                         markForDel.append(t)
@@ -668,7 +697,7 @@ def OtherWrite(tlines, output):
                         tlines[t] = re.sub(dline[0], u"", tlines[t], 0, re.M|re.U)
         for e in range(len(markForDel)-1, -1, -1):
             del tlines[markForDel[e]]
-            
+
     #First, fix long tracks (won't need to do this again)
     for i in range(len(tlines)):
         longTrack = re.search(ur'(\d+):(\d+):(\d+)', tlines[i], re.M|re.U)
@@ -685,7 +714,7 @@ def OtherWrite(tlines, output):
     if len(toWrite) == 0: #If info is on separate lines, must combine all lines to search
         Reg1b = ur"^\b(\d+)[\-\.]?(?:\r\n)?(\d*)\.?(?:\r\n|\s+)\s?(\S.*)(?:\r\n)?\s*\b(\d+):(\d{1,2})\b"
         toWrite = RegOneLine(Reg1b, tlines, 1, 2, 3, 4, 5)
-        
+
     #Less strict search: allow other duration formats, permit strict vinyl ("A1" not "A")
     if len(toWrite) == 0:
         Reg2a = ur"^\b([A-Z]\d+|\d+(?:[\-\.]?))(\d*)\.?\s+(\S.*)\s+\b(\d+)[:'m](\d{1,2})[s\"]?\b"
@@ -710,25 +739,27 @@ def OtherWrite(tlines, output):
         Reg00 = ur"(\d+)\s+(.+)"
         toWrite = RegByLine(Reg00, tlines, 1, 0, 2, 0, 0)
     if len(toWrite) == 0: #Maybe it's just the title...
-        Reg0 = ur"(.+)" 
+        Reg0 = ur"(.+)"
         toWrite = RegByLine(Reg0, tlines, 0, 0, 1, 0, 0)
-        
+
     #Finally, insert links to classical works where applicable:
-    if settings["isClass"]:
+    if global_settings["isClass"]:
         toWrite = WriteClassical(toWrite)
-    
-    print "------------------------"
-    print "Results written to txt:"
-    print "------------------------"
-    print ""
-    for line in toWrite:
-        print line
-    
-    #Actual text writing:
-    for line in toWrite:
-        out.write(line.encode('utf-8') + "\n")
-    out.close()
-    
+
+    # print "------------------------"
+    # print "Results written to txt:"
+    # print "------------------------"
+    # print ""
+    # for line in toWrite:
+    #     print line
+    #
+    # #Actual text writing:
+    # for line in toWrite:
+    #     out.write(line.encode('utf-8') + "\n")
+    # out.close()
+
+    return toWrite
+
 def RegByLine(pattern, tlines, discG, tnumG, titleG, minG, secG):
     '''
     For use with "Other" sources. Looks for track data using "pattern" and writes info for each track
@@ -780,7 +811,7 @@ def RegOneLine(pattern, tlines, discG, tnumG, titleG, minG, secG):
             trTitle = StripSpaces(trTitle)
             trMin = StripSpaces(trMin)
             trSec = StripSpaces(trSec)
-            
+
             if isInt(trDisc) and len(trNum) > 0: #Non-vinyl disc:
                 toWrite.append(trDisc + '.' + trNum + '|' + StripSpaces(trTitle) + '|' + trMin + trSec)
             else:
@@ -792,7 +823,7 @@ def RegOneLine(pattern, tlines, discG, tnumG, titleG, minG, secG):
             oneline = re.sub(trackInfo.group(secG), u"", oneline, 1, re.M|re.U)
             trackInfo = re.search(pattern, oneline, re.M|re.U)
     return toWrite
-            
+
 #----Classical linking function (should work for all source sites):----
 
 def WriteClassical(tracks):
@@ -800,7 +831,7 @@ def WriteClassical(tracks):
     takes a list of nearly finished tracks separated by | and inserts links to classical works where apt.
     tracks = list of RYM-format tracks
     '''
-    tcopy = tracks[:]  
+    tcopy = tracks[:]
     #create copy list of track info
     clines = []
     for line in tcopy:
@@ -817,21 +848,21 @@ def WriteClassical(tracks):
         #Also, perform this capitalization if there is "##." where ## may be a roman numeral:
         moveSearch = re.search(ur"(.*)((\d+|((xc|x?l|l?x{1,3})(ix|iv|v?i{0,3})|(xc|xl|l?x{0,3})(ix|i?v|v?i{1,3}))\. )(.+))$", line[1], re.I|re.M|re.U)
         if moveSearch:
-            oldlang = settings["lang"][:]
-            settings["lang"] = settings["mvlang"]
+            oldlang = global_settings["lang"][:]
+            global_settings["lang"] = global_settings["mvlang"]
             line[1] = moveSearch.group(1)+ moveSearch.group(3) + CapsFormat(moveSearch.group(9))
-            settings["lang"] = oldlang
-            
-    wlines = settings["wlines"] #for convenience
-    
+            global_settings["lang"] = oldlang
+
+    wlines = global_settings["wlines"] #for convenience
+
     for x in range(len(wlines)): #first replace "disc-track" with "disc.track":
         wlines[x][0] = string.replace(wlines[x][0], u'-', u'.')
-        
+
     for x in range(len(wlines)):
         if wlines[x][0] == u'p': #Time to fix placeholders
             if x == 0: #first line -> assume first numbered track from tracklist
                 y = 0
-                while len(numlist[y]) == 0: 
+                while len(numlist[y]) == 0:
                     y += 1
                     if y == len(numlist):
                         y = 0 #This shouldn't really happen?
@@ -848,7 +879,7 @@ def WriteClassical(tracks):
                         print "Classical work error. Couldn't find tracknum for line:", wlines[x]
                 else:
                     raise ValueError("Something went wrong. Can't assign track#s to works")
-        
+
         if len(wlines[x]) > 2: #must be main work
             for w in range(len(clines)):
                 if wlines[x][0] == clines[w][0]:
@@ -902,18 +933,18 @@ def WriteClassical(tracks):
                                     clines[w][1] = link[:-1] + "," + clines[w][1] + link[-1]
                                 else:
                                     clines[w][1] = clines[w][1] + link[:-1] + ", EDIT ME" + link[-1]
-                                    
+
     #Now insert main work lines after loop, and in reverse:
     for q in range(len(toInsert)-1, -1, -1):
         clines.insert(toInsert[q][0], toInsert[q][1])
-   
-    #merge clines back to tracklist:                 
+
+    #merge clines back to tracklist:
     for c in range(len(clines)):
         clines[c] = u"|".join(clines[c])
-    
+
     tracks = clines
     return tracks
-                    
+
 
 #----Extra functions----
 
@@ -950,7 +981,7 @@ def GenerateSplits(trackname, numsplits):
         ind += 1
         if ind == len(splitchars):
             print "Couldn't find split locations. Cut and paste into appropriate location."
-            return False 
+            return False
 
 def ReplaceBold(line):
     '''
@@ -983,7 +1014,7 @@ def OneWorkLess(work):
     '''
     linkNum = re.search(r"(.+?)(\d+)(.+)", work, re.M|re.U)
     return linkNum.group(1) + str(int(linkNum.group(2)) - 1) + linkNum.group(3)
-    
+
 
 def GenerateMovements(mainlink, nummoves, overmoves, isExcl):
     '''
@@ -1142,15 +1173,15 @@ def CapsFormat(s):
                      'Or', 'As', 'At', 'By', 'To', 'Vs.', 'Vs', \
                      'Etc', 'Etc.', "'N'", "O'"]
 
-    if settings["lang"] == '0':
+    if global_settings["lang"] == '0':
         return s #Avoid all title formatting operations
-    
+
     #Preliminary classical spacing fixes:
-    if settings["isClass"]:
+    if global_settings["isClass"]:
         s = re.sub(ur"(N[ro])(?:\.|\.\s|\s|\-)(\d+)", ur"\1. \2", s, 0, re.I|re.U|re.M)
         s = re.sub(ur"(Op)(?:\.|\.\s|\s|\-)(\d+)", ur"\1. \2", s, 0, re.I|re.U|re.M)
-    
-    if settings["lang"] == 'e':
+
+    if global_settings["lang"] == 'e':
         #Capitalize each word in string:
         sList = s.split()
         for sword in range(len(sList)):
@@ -1163,7 +1194,7 @@ def CapsFormat(s):
         for lword in engLowerWords:
             toReg = ur'(?<![\!\?\:\("\.\-\u2014\/\\])(?:\s)(' + re.escape(lword) + ur')(?:\s)(?![\!\?\:\)\"\.\-\u2014\/\\])'
             s = re.sub(toReg, spaced_lower_word, s, 0, re.M|re.U)
-    elif settings["lang"] == 'f' or settings["lang"] == 's' or settings["lang"] == 'l' or settings["lang"] == 'i':
+    elif settings["lang"] == 'f' or global_settings["lang"] == 's' or global_settings["lang"] == 'l' or global_settings["lang"] == 'i':
         #Romance languages: turn every word except the first (incl. after major punct) to lowercase.
         sList = s.split()
         for sword in range(1,len(sList)):
@@ -1183,7 +1214,7 @@ def CapsFormat(s):
         pass #To be continued...
 
     #Fix any classical capitalization errors:
-    if settings["isClass"]:
+    if global_settings["isClass"]:
         #Trim spaces between, e.g., A - Flat Minor:
         s = re.sub(ur"\b([A-Za-z])\s+[\-\u2014]\s+(Flat|Sharp)", FixKeySpacing, s, 0, re.M|re.U)
         #Lowercase "major" or "minor"
@@ -1199,7 +1230,23 @@ def CapsFormat(s):
         s = re.sub(ur"\b(Opp?)(?:\.|\.\s|\s|\-)(\d+)", OpusCap, s, 0, re.I|re.U|re.M)
         #All caps roman numerals: (Saving only for classical because reasons)
         s = re.sub(ur"(^|\s+|\(|\[)((xc|xl|l?x{0,3})(ix|iv|v?i{0,3}))(\.|\s|\)|\]|$)", RomanNumCap, s, 0, re.I|re.U|re.M)
-        
+
     return s
-    
-TrackListWrite(TracklistFilename, SettingsFilename, OutFilename)
+
+if __name__ == '__main__':
+    tracklist = parse_tracklist_file(TracklistFilename)
+    settings = parse_settings_file(SettingsFilename)
+    toWrite = TrackListWrite(tracklist, settings)
+
+    print "------------------------"
+    print "Results written to txt:"
+    print "------------------------"
+    print ""
+    for line in toWrite:
+        print line
+
+    out = open(OutFilename, 'w')
+    #Actual text writing:
+    for line in toWrite:
+        out.write(line.encode('utf-8') + "\n")
+    out.close()

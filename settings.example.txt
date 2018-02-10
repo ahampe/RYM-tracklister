@@ -1,0 +1,18 @@
+#Site sources: Discogs (d), iTunes [website only] (i), Amazon [digital music only] (z), AllMusic (a), RYM [advanced] (r), Other (o)
+#If you've entered Other (o), you may enter any unneeded phrases you want deleted on the line after the next one (see how-to).
+Source: o
+
+#V/A: Is this a various artists release (or any release that should enter artists in the track field)?
+#Enter "y" or "n" below.
+Is_VA: n
+
+#Languages: English (e) [French (f) Spanish (s) Italian (i) Latin (l)]
+#If you don't want any capitalization formatting, enter "0" instead.
+#Note that this script cannot find proper nouns. You must capitalize them yourself.
+Language: e
+
+#Merge sub-tracks: enter "y" or "n" below. This is only used for discogs.
+Merge: n
+
+#IF this is not a classical release, you can ignore the rest of this text file; you're done. Well, just make sure everything after the next line is empty. See the instructions before entering classical info.
+Begin_adding_next_line:

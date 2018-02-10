@@ -1,0 +1,6 @@
+venv
+settings.txt
+tracklist-in.txt
+tracklist-out.txt
+*.pyc
+static/node_modules

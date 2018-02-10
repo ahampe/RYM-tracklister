@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>RYM Tracklist Writer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <div style="width:50%;float:left;">
+      <form id="inputForm">
+        <div class="options-section">
+          <div>
+            <label>lang</label>
+            <select name="lang">
+              <option value="e">English</option>
+              <option value="f">French</option>
+              <option value="s">Spanish</option>
+              <option value="i">Italian</option>
+              <option value="l">Latin</option>
+            </select>
+          </div>
+          <div>
+            <label>va</label>
+            <select name="va">
+              <option value="y">Yes</option>
+              <option value="n">No</option>
+            </select>
+          </div>
+          <div>
+            <label>merge</label>
+            <select name="merge">
+              <option value="y">Yes</option>
+              <option value="n">No</option>
+            </select>
+          </div>
+          <div>
+            <label>isClass</label>
+            <input name="isClass" type="checkbox">
+          </div>
+          <div>
+            <label>toClear (endline delimited)</label>
+            <textarea class="split-by-newline" name="toClear" rows="4" style="width:100%"></textarea>
+          </div>
+          <div>
+            <label>mvlang</label>
+            <select name="mvlang">
+              <option value="e">English</option>
+              <option value="f">French</option>
+              <option value="s">Spanish</option>
+              <option value="i">Italian</option>
+              <option value="l">Latin</option>
+            </select>
+          </div>
+          <div>
+            <label>source</label>
+            <select name="source">
+              <option value="d">Discogs</option>
+              <option value="i">iTunes [website only]</option>
+              <option value="z">Amazon [digital music only]</option>
+              <option value="a">AllMusic</option>
+              <option value="r">RYM [advanced]</option>
+              <option value="o">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="root-section">
+          <label>input</label>
+          <textarea name="tracklist" rows="10" style="width:100%"></textarea>
+        </div>
+        <button type="submit">
+          Process
+        </button>
+      </form>
+    </div>
+    <div style="width:50%;float:left;">
+      <p>Output:</p>
+      <div id="output"></div>
+    </div>
+    <script type="text/javascript" src="{{ url_for('static', filename='node_modules/jquery/dist/jquery.min.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
