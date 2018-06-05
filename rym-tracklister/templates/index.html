@@ -1,0 +1,37 @@
+<!doctype html>
+{% block body %}
+	<head>
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+		<script type=text/javascript>
+			$(function() {
+			  $('a#process_tlist').bind('click', function() {
+				$.getJSON('/background_process', {
+				  tracklist: $('#tlist').val(),
+				  caps: $('#caps').is(":checked")
+				}, function(data) {
+				  $("#output").text(data.result);
+				});
+				return false;
+			  });
+			});
+		</script>
+	</head>
+
+	<body>
+		<div class='container'>
+			<div style="width:50%;float:left;">
+				<p>Input:
+				<input type="checkbox" form="tlinp" id="caps" checked> Case formatting<br></p>
+				<textarea form="tlinp" id="tlist" rows="20" style="width:90%"></textarea>
+				<form id="tlinp">
+
+					<a href=# id=process_tlist><button class='btn btn-default'>Process</button></a>
+				</form>
+			</div>
+			<div style="width:50%;float:left;">
+				<p>Output:</p>
+				<textarea id=output rows="20" style="width:90%"></textarea>
+			</div>
+		</div>
+	</body>
+{% endblock %}

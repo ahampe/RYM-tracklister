@@ -1,6 +1,6 @@
 venv
+.idea
+rym_tracklister.egg-info
 settings.txt
-tracklist-in.txt
-tracklist-out.txt
 *.pyc
 static/node_modules
